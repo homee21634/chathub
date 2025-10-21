@@ -5,7 +5,6 @@
 [![MongoDB](https://img.shields.io/badge/MongoDB-7.0+-green.svg)](https://www.mongodb.com/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-blue.svg)](https://www.postgresql.org/)
 [![Redis](https://img.shields.io/badge/Redis-7.0+-red.svg)](https://redis.io/)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 A modern, scalable real-time chat system built with Spring Boot, WebSocket, MongoDB, PostgreSQL, and Redis.
 
