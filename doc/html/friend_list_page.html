@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatHub - 好友列表</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft JhengHei', sans-serif;
+            background: #f5f5f5;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 側邊欄 */
+        .sidebar {
+            width: 320px;
+            background: #ffffff;
+            border-right: 1px solid #e5e7eb;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid #e5e7eb;
+            background: #1a1a1a;
+            color: white;
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: bold;
+            color: white;
+            position: relative;
+        }
+
+        .avatar.small {
+            width: 40px;
+            height: 40px;
+            font-size: 16px;
+        }
+
+        .online-indicator {
+            position: absolute;
+            bottom: 2px;
+            right: 2px;
+            width: 12px;
+            height: 12px;
+            background: #10b981;
+            border: 2px solid white;
+            border-radius: 50%;
+        }
+
+        .online-indicator.offline {
+            background: #6b7280;
+        }
+
+        .user-info h3 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .user-info p {
+            font-size: 13px;
+            color: #9ca3af;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .icon-btn {
+            width: 36px;
+            height: 36px;
+            border: 1px solid #e5e7eb;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            transition: all 0.3s;
+        }
+
+        .icon-btn:hover {
+            background: #f9fafb;
+            border-color: #d1d5db;
+        }
+
+        .icon-btn.primary {
+            background: #1a1a1a;
+            color: white;
+            border: none;
+        }
+
+        .icon-btn.primary:hover {
+            background: #000000;
+        }
+
+        /* 搜尋欄 */
+        .search-box {
+            padding: 16px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .search-input-wrapper {
+            position: relative;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 10px 16px 10px 40px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+            transition: all 0.3s;
+        }
+
+        .search-input:focus {
+            border-color: #4b5563;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #9ca3af;
+            font-size: 16px;
+        }
+
+        /* 標籤切換 */
+        .tabs {
+            display: flex;
+            padding: 0 16px;
+            border-bottom: 1px solid #e5e7eb;
+            background: white;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 12px;
+            background: none;
+            border: none;
+            color: #6b7280;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            position: relative;
+            transition: color 0.3s;
+        }
+
+        .tab:hover {
+            color: #1a1a1a;
+        }
+
+        .tab.active {
+            color: #1a1a1a;
+        }
+
+        .tab.active::after {
+            content: "";
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: #1a1a1a;
+        }
+
+        .tab-badge {
+            display: inline-block;
+            background: #ef4444;
+            color: white;
+            font-size: 11px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            margin-left: 6px;
+        }
+
+        /* 好友列表 */
+        .friend-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .friend-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            cursor: pointer;
+            transition: background 0.2s;
+            border-bottom: 1px solid #f3f4f6;
+        }
+
+        .friend-item:hover {
+            background: #f9fafb;
+        }
+
+        .friend-item.active {
+            background: #f3f4f6;
+        }
+
+        .friend-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .friend-name {
+            font-size: 15px;
+            font-weight: 600;
+            color: #1a1a1a;
+            margin-bottom: 4px;
+        }
+
+        .friend-status {
+            font-size: 13px;
+            color: #6b7280;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .friend-actions {
+            display: flex;
+            gap: 4px;
+        }
+
+        .action-icon {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            transition: all 0.2s;
+            color: #6b7280;
+        }
+
+        .action-icon:hover {
+            background: #e5e7eb;
+            color: #1a1a1a;
+        }
+
+        .action-icon.accept {
+            color: #10b981;
+        }
+
+        .action-icon.accept:hover {
+            background: #d1fae5;
+        }
+
+        .action-icon.reject {
+            color: #ef4444;
+        }
+
+        .action-icon.reject:hover {
+            background: #fee2e2;
+        }
+
+        /* 主要內容區 */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #fafafa;
+        }
+
+        .content-header {
+            padding: 20px 24px;
+            background: white;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .content-title {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .content-title h2 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+
+        .content-body {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #9ca3af;
+        }
+
+        .empty-state .emoji {
+            font-size: 64px;
+            margin-bottom: 16px;
+        }
+
+        .empty-state h3 {
+            font-size: 18px;
+            color: #6b7280;
+            margin-bottom: 8px;
+        }
+
+        .empty-state p {
+            font-size: 14px;
+        }
+
+        /* 好友詳情 */
+        .friend-detail {
+            display: none;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .friend-detail.show {
+            display: block;
+        }
+
+        .friend-detail .avatar {
+            width: 100px;
+            height: 100px;
+            font-size: 40px;
+            margin: 0 auto 20px;
+        }
+
+        .friend-detail h2 {
+            font-size: 24px;
+            font-weight: 600;
+            color: #1a1a1a;
+            margin-bottom: 8px;
+        }
+
+        .friend-detail .status {
+            font-size: 14px;
+            color: #6b7280;
+            margin-bottom: 32px;
+        }
+
+        .friend-detail-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-bottom: 32px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: #1a1a1a;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #000000;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-secondary {
+            background: white;
+            color: #1a1a1a;
+            border: 2px solid #e5e7eb;
+        }
+
+        .btn-secondary:hover {
+            border-color: #1a1a1a;
+        }
+
+        .btn-danger {
+            background: white;
+            color: #ef4444;
+            border: 2px solid #fee2e2;
+        }
+
+        .btn-danger:hover {
+            background: #fee2e2;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            padding: 32px;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-header {
+            margin-bottom: 20px;
+        }
+
+        .modal-header h3 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1a1a1a;
+            margin-bottom: 8px;
+        }
+
+        .modal-header p {
+            font-size: 14px;
+            color: #6b7280;
+        }
+
+        .modal-body {
+            margin-bottom: 24px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            color: #1a1a1a;
+            margin-bottom: 8px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 10px 14px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+            transition: all 0.3s;
+        }
+
+        .form-group input:focus {
+            border-color: #4b5563;
+        }
+
+        .modal-footer {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        .btn-small {
+            padding: 10px 20px;
+            font-size: 14px;
+        }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+
+        .alert-success {
+            background: #d1fae5;
+            color: #065f46;
+            border-left: 4px solid #10b981;
+        }
+
+        .alert-error {
+            background: #fee2e2;
+            color: #991b1b;
+            border-left: 4px solid #ef4444;
+        }
+
+        /* 響應式設計 */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+                border-right: none;
+            }
+
+            .main-content {
+                display: none;
+            }
+
+            .container.show-detail .sidebar {
+                display: none;
+            }
+
+            .container.show-detail .main-content {
+                display: flex;
+            }
+        }
+
+        /* 滾動條樣式 */
+        .friend-list::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .friend-list::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        .friend-list::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 3px;
+        }
+
+        .friend-list::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af;
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="container">
+        <!-- 側邊欄 -->
+        <div class="sidebar">
+            <!-- 使用者資訊 -->
+            <div class="sidebar-header">
+                <div class="user-profile">
+                    <div class="avatar">
+                        JD
+                        <div class="online-indicator"></div>
+                    </div>
+                    <div class="user-info">
+                        <h3>john_doe</h3>
+                        <p>線上</p>
+                    </div>
+                </div>
+                <div class="action-buttons">
+                    <button class="icon-btn primary" onclick="showAddFriendModal()" title="新增好友">
+                        ➕
+                    </button>
+                    <button class="icon-btn" onclick="alert('設定功能開發中')" title="設定">
+                        ⚙️
+                    </button>
+                    <button class="icon-btn" onclick="logout()" title="登出">
+                        🚪
+                    </button>
+                </div>
+            </div>
+
+            <!-- 搜尋欄 -->
+            <div class="search-box">
+                <div class="search-input-wrapper">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" class="search-input" placeholder="搜尋好友..." oninput="searchFriends(this.value)">
+                </div>
+            </div>
+
+            <!-- 標籤切換 -->
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('friends')">
+                    好友
+                </button>
+                <button class="tab" onclick="switchTab('requests')">
+                    請求<span class="tab-badge">3</span>
+                </button>
+            </div>
+
+            <!-- 好友列表 -->
+            <div class="friend-list" id="friendList">
+                <!-- 好友項目會動態生成 -->
+            </div>
+        </div>
+
+        <!-- 主要內容區 -->
+        <div class="main-content">
+            <div class="content-header">
+                <div class="content-title">
+                    <button class="icon-btn" onclick="backToList()" style="display: none;" id="backBtn">
+                        ⬅️
+                    </button>
+                    <h2 id="contentTitle">好友列表</h2>
+                </div>
+            </div>
+
+            <div class="content-body">
+                <!-- 空白狀態 -->
+                <div class="empty-state" id="emptyState">
+                    <div class="emoji">👥</div>
+                    <h3>選擇一個好友開始聊天</h3>
+                    <p>或點擊「➕」按鈕新增好友</p>
+                </div>
+
+                <!-- 好友詳情 -->
+                <div class="friend-detail" id="friendDetail">
+                    <div class="avatar" id="detailAvatar">
+                        AL
+                        <div class="online-indicator"></div>
+                    </div>
+                    <h2 id="detailName">alice_wang</h2>
+                    <p class="status" id="detailStatus">線上 - 最後上線：剛剛</p>
+
+                    <div class="friend-detail-actions">
+                        <button class="btn btn-primary" onclick="startChat()">
+                            💬 開始聊天
+                        </button>
+                        <button class="btn btn-secondary" onclick="viewProfile()">
+                            👤 查看資料
+                        </button>
+                        <button class="btn btn-danger" onclick="confirmRemoveFriend()">
+                            🗑️ 刪除好友
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新增好友 Modal -->
+    <div class="modal" id="addFriendModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>新增好友</h3>
+                <p>輸入對方的帳號以發送好友請求</p>
+            </div>
+            <div class="modal-body">
+                <div id="addFriendAlert"></div>
+                <div class="form-group">
+                    <label for="friendUsername">好友帳號</label>
+                    <input type="text" id="friendUsername" placeholder="請輸入帳號">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary btn-small" onclick="closeAddFriendModal()">
+                    取消
+                </button>
+                <button class="btn btn-primary btn-small" onclick="sendFriendRequest()">
+                    發送請求
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 模擬資料
+        const friendsData = [
+            { id: 1, username: 'alice_wang', avatar: 'AL', online: true, lastSeen: '剛剛' },
+            { id: 2, username: 'bob_chen', avatar: 'BC', online: false, lastSeen: '2小時前' },
+            { id: 3, username: 'carol_lin', avatar: 'CL', online: true, lastSeen: '剛剛' },
+            { id: 4, username: 'david_liu', avatar: 'DL', online: false, lastSeen: '昨天' },
+            { id: 5, username: 'emma_wu', avatar: 'EW', online: true, lastSeen: '剛剛' },
+        ];
+
+        const requestsData = [
+            { id: 101, username: 'frank_huang', avatar: 'FH', online: false },
+            { id: 102, username: 'grace_chang', avatar: 'GC', online: true },
+            { id: 103, username: 'henry_tsai', avatar: 'HT', online: false },
+        ];
+
+        let currentTab = 'friends';
+        let selectedFriend = null;
+
+        // 初始化
+        renderFriendList();
+
+        function renderFriendList() {
+            const listContainer = document.getElementById('friendList');
+            const data = currentTab === 'friends' ? friendsData : requestsData;
+
+            listContainer.innerHTML = '';
+
+            if (data.length === 0) {
+                listContainer.innerHTML = `
+                    <div class="empty-state" style="padding: 40px 20px;">
+                        <div class="emoji" style="font-size: 48px;">😔</div>
+                        <h3 style="font-size: 16px; color: #6b7280;">沒有${currentTab === 'friends' ? '好友' : '好友請求'}</h3>
+                    </div>
+                `;
+                return;
+            }
+
+            data.forEach(friend => {
+                const item = document.createElement('div');
+                item.className = 'friend-item';
+                item.onclick = () => selectFriend(friend);
+
+                if (currentTab === 'friends') {
+                    item.innerHTML = `
+                        <div class="avatar small">
+                            ${friend.avatar}
+                            <div class="online-indicator ${friend.online ? '' : 'offline'}"></div>
+                        </div>
+                        <div class="friend-info">
+                            <div class="friend-name">${friend.username}</div>
+                            <div class="friend-status">${friend.online ? '線上' : '離線'} - ${friend.lastSeen}</div>
+                        </div>
+                    `;
+                } else {
+                    item.innerHTML = `
+                        <div class="avatar small">
+                            ${friend.avatar}
+                        </div>
+                        <div class="friend-info">
+                            <div class="friend-name">${friend.username}</div>
+                            <div class="friend-status">想要加你為好友</div>
+                        </div>
+                        <div class="friend-actions">
+                            <button class="action-icon accept" onclick="acceptRequest(${friend.id}); event.stopPropagation();" title="接受">
+                                ✓
+                            </button>
+                            <button class="action-icon reject" onclick="rejectRequest(${friend.id}); event.stopPropagation();" title="拒絕">
+                                ✕
+                            </button>
+                        </div>
+                    `;
+                }
+
+                listContainer.appendChild(item);
+            });
+        }
+
+        function switchTab(tab) {
+            currentTab = tab;
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            renderFriendList();
+            hideDetail();
+        }
+
+        function selectFriend(friend) {
+            selectedFriend = friend;
+            showDetail(friend);
+        }
+
+        function showDetail(friend) {
+            document.getElementById('emptyState').style.display = 'none';
+            document.getElementById('friendDetail').classList.add('show');
+            document.getElementById('detailAvatar').innerHTML = `
+                ${friend.avatar}
+                <div class="online-indicator ${friend.online ? '' : 'offline'}"></div>
+            `;
+            document.getElementById('detailName').textContent = friend.username;
+            document.getElementById('detailStatus').textContent = 
+                `${friend.online ? '線上' : '離線'} - 最後上線：${friend.lastSeen}`;
+            document.getElementById('contentTitle').textContent = friend.username;
+
+            // 響應式：手機版顯示返回按鈕
+            if (window.innerWidth <= 768) {
+                document.getElementById('backBtn').style.display = 'flex';
+                document.getElementById('container').classList.add('show-detail');
+            }
+
+            // 標記為選中
+            document.querySelectorAll('.friend-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            event.target.closest('.friend-item')?.classList.add('active');
+        }
+
+        function hideDetail() {
+            document.getElementById('emptyState').style.display = 'block';
+            document.getElementById('friendDetail').classList.remove('show');
+            document.getElementById('contentTitle').textContent = '好友列表';
+            document.getElementById('backBtn').style.display = 'none';
+            document.getElementById('container').classList.remove('show-detail');
+        }
+
+        function backToList() {
+            hideDetail();
+        }
+
+        function startChat() {
+            alert(`開始與 ${selectedFriend.username} 聊天\n（跳轉至聊天頁面）`);
+        }
+
+        function viewProfile() {
+            alert(`查看 ${selectedFriend.username} 的個人資料\n（功能開發中）`);
+        }
+
+        function confirmRemoveFriend() {
+            if (confirm(`確定要刪除好友 ${selectedFriend.username} 嗎？`)) {
+                alert('好友已刪除');
+                hideDetail();
+                // 從列表中移除
+                const index = friendsData.findIndex(f => f.id === selectedFriend.id);
+                if (index > -1) {
+                    friendsData.splice(index, 1);
+                    renderFriendList();
+                }
+            }
+        }
+
+        function showAddFriendModal() {
+            document.getElementById('addFriendModal').classList.add('show');
+            document.getElementById('friendUsername').value = '';
+            document.getElementById('addFriendAlert').innerHTML = '';
+        }
+
+        function closeAddFriendModal() {
+            document.getElementById('addFriendModal').classList.remove('show');
+        }
+
+        function sendFriendRequest() {
+            const username = document.getElementById('friendUsername').value.trim();
+            const alertDiv = document.getElementById('addFriendAlert');
+
+            if (!username) {
+                alertDiv.innerHTML = '<div class="alert alert-error">請輸入好友帳號</div>';
+                return;
+            }
+
+            if (username === 'john_doe') {
+                alertDiv.innerHTML = '<div class="alert alert-error">不能加自己為好友</div>';
+                return;
+            }
+
+            // 模擬發送請求
+            setTimeout(() => {
+                alertDiv.innerHTML = '<div class="alert alert-success">✓ 好友請求已發送</div>';
+                setTimeout(() => {
+                    closeAddFriendModal();
+                }, 1500);
+            }, 500);
+        }
+
+        function acceptRequest(id) {
+            const request = requestsData.find(r => r.id === id);
+            if (request) {
+                alert(`已接受 ${request.username} 的好友請求`);
+                // 移除請求，加入好友列表
+                const index = requestsData.findIndex(r => r.id === id);
+                if (index > -1) {
+                    requestsData.splice(index, 1);
+                }
+                friendsData.push({ ...request, online: true, lastSeen: '剛剛' });
+                renderFriendList();
+                
+                // 更新徽章
+                const badge = document.querySelector('.tab-badge');
+                if (badge) {
+                    const count = parseInt(badge.textContent) - 1;
+                    if (count > 0) {
+                        badge.textContent = count;
+                    } else {
+                        badge.remove();
+                    }
+                }
+            }
+        }
+
+        function rejectRequest(id) {
+            const request = requestsData.find(r => r.id === id);
+            if (request && confirm(`確定要拒絕 ${request.username} 的好友請求嗎？`)) {
+                const index = requestsData.findIndex(r => r.id === id);
+                if (index > -1) {
+                    requestsData.splice(index, 1);
+                    renderFriendList();
+                    
+                    // 更新徽章
+                    const badge = document.querySelector('.tab-badge');
+                    if (badge) {
+                        const count = parseInt(badge.textContent) - 1;
+                        if (count > 0) {
+                            badge.textContent = count;
+                        } else {
+                            badge.remove();
+                        }
+                    }
+                }
+            }
+        }
+
+        function searchFriends(query) {
+            const items = document.querySelectorAll('.friend-item');
+            items.forEach(item => {
+                const name = item.querySelector('.friend-name').textContent.toLowerCase();
+                if (name.includes(query.toLowerCase())) {
+                    item.style.display = 'flex';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        }
+
+        function logout() {
+            if (confirm('確定要登出嗎？')) {
+                alert('已登出（跳轉至登入頁面）');
+            }
+        }
+
+        // 點擊 Modal 外部關閉
+        document.getElementById('addFriendModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeAddFriendModal();
+            }
+        });
+    </script>
+</body>
+</html>

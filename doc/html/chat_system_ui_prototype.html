@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>聊天系統 UI 原型 - 註冊與登入</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft JhengHei', sans-serif;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 450px;
+        }
+
+        .card {
+            background: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            padding: 40px;
+            position: relative;
+            display: none;
+        }
+
+        .card.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .logo h1 {
+            color: #1a1a1a;
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .logo p {
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            color: #1a1a1a;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+        input[type="text"],
+        input[type="password"] {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 15px;
+            transition: all 0.3s;
+            outline: none;
+            background: #ffffff;
+            color: #1a1a1a;
+        }
+
+        input[type="text"]:focus,
+        input[type="password"]:focus {
+            border-color: #4b5563;
+            box-shadow: 0 0 0 3px rgba(75, 85, 99, 0.1);
+        }
+
+        input.error {
+            border-color: #ef4444;
+        }
+
+        input.success {
+            border-color: #10b981;
+        }
+
+        .input-icon {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 18px;
+            cursor: pointer;
+            color: #6b7280;
+        }
+
+        .error-message {
+            color: #ef4444;
+            font-size: 13px;
+            margin-top: 6px;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .success-message {
+            color: #10b981;
+            font-size: 13px;
+            margin-top: 6px;
+            display: none;
+        }
+
+        .success-message.show {
+            display: block;
+        }
+
+        .password-requirements {
+            margin-top: 12px;
+            padding: 12px;
+            background: #f9fafb;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .password-requirements p {
+            font-size: 13px;
+            color: #374151;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .requirement-item {
+            display: flex;
+            align-items: center;
+            font-size: 13px;
+            color: #9ca3af;
+            margin-bottom: 4px;
+        }
+
+        .requirement-item.met {
+            color: #10b981;
+        }
+
+        .requirement-item::before {
+            content: "○";
+            margin-right: 8px;
+            font-weight: bold;
+        }
+
+        .requirement-item.met::before {
+            content: "✓";
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            margin-right: 8px;
+            cursor: pointer;
+            accent-color: #1a1a1a;
+        }
+
+        .checkbox-group label {
+            margin: 0;
+            cursor: pointer;
+            font-weight: 400;
+            color: #4b5563;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 16px;
+        }
+
+        .btn-primary {
+            background: #1a1a1a;
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: #000000;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn:disabled {
+            background: #d1d5db;
+            cursor: not-allowed;
+            color: #9ca3af;
+        }
+
+        .btn-loading {
+            position: relative;
+            color: transparent;
+        }
+
+        .btn-loading::after {
+            content: "";
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            top: 50%;
+            left: 50%;
+            margin-left: -10px;
+            margin-top: -10px;
+            border: 3px solid #ffffff;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spinner 0.6s linear infinite;
+        }
+
+        @keyframes spinner {
+            to { transform: rotate(360deg); }
+        }
+
+        .divider {
+            text-align: center;
+            margin: 24px 0;
+            color: #9ca3af;
+            font-size: 14px;
+            position: relative;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            width: 40%;
+            height: 1px;
+            background: #e5e7eb;
+        }
+
+        .divider::before { left: 0; }
+        .divider::after { right: 0; }
+
+        .link-text {
+            text-align: center;
+            font-size: 14px;
+            color: #6b7280;
+        }
+
+        .link-text a {
+            color: #1a1a1a;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .link-text a:hover {
+            text-decoration: underline;
+        }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .alert.show {
+            display: block;
+        }
+
+        .alert-error {
+            background: #fee2e2;
+            color: #991b1b;
+            border-left: 4px solid #ef4444;
+        }
+
+        .alert-success {
+            background: #d1fae5;
+            color: #065f46;
+            border-left: 4px solid #10b981;
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .nav-tab {
+            flex: 1;
+            padding: 12px;
+            background: none;
+            border: none;
+            color: #9ca3af;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            position: relative;
+            transition: color 0.3s;
+        }
+
+        .nav-tab:hover {
+            color: #4b5563;
+        }
+
+        .nav-tab.active {
+            color: #1a1a1a;
+        }
+
+        .nav-tab.active::after {
+            content: "";
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: #1a1a1a;
+        }
+
+        .password-strength {
+            margin-top: 8px;
+        }
+
+        .strength-bar {
+            height: 4px;
+            background: #e5e7eb;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-bottom: 4px;
+        }
+
+        .strength-fill {
+            height: 100%;
+            width: 0%;
+            transition: all 0.3s;
+            border-radius: 2px;
+        }
+
+        .strength-fill.weak { width: 33%; background: #ef4444; }
+        .strength-fill.medium { width: 66%; background: #f59e0b; }
+        .strength-fill.strong { width: 100%; background: #10b981; }
+
+        .strength-text {
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        @media (max-width: 480px) {
+            .card {
+                padding: 30px 20px;
+            }
+            
+            body {
+                background: #1a1a1a;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card active" id="registerCard">
+            <div class="nav-tabs">
+                <button class="nav-tab active" onclick="showCard('register')">註冊</button>
+                <button class="nav-tab" onclick="showCard('login')">登入</button>
+            </div>
+
+            <div class="logo">
+                <h1>💬 ChatHub</h1>
+                <p>創建您的帳號</p>
+            </div>
+
+            <div class="alert alert-error" id="registerAlert"></div>
+
+            <form id="registerForm" onsubmit="handleRegister(event)">
+                <div class="form-group">
+                    <label for="reg-username">帳號</label>
+                    <input 
+                        type="text" 
+                        id="reg-username" 
+                        placeholder="請輸入帳號 (4-20個字元)"
+                        oninput="validateUsername(this)"
+                    >
+                    <div class="error-message" id="username-error"></div>
+                    <div class="success-message" id="username-success"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="reg-password">密碼</label>
+                    <div class="input-wrapper">
+                        <input 
+                            type="password" 
+                            id="reg-password" 
+                            placeholder="請輸入密碼"
+                            oninput="validatePassword(this)"
+                        >
+                        <span class="input-icon" onclick="togglePassword('reg-password')">👁️</span>
+                    </div>
+                    <div class="password-strength">
+                        <div class="strength-bar">
+                            <div class="strength-fill" id="strength-fill"></div>
+                        </div>
+                        <div class="strength-text" id="strength-text"></div>
+                    </div>
+                    <div class="password-requirements">
+                        <p>密碼必須包含：</p>
+                        <div class="requirement-item" id="req-length">至少 8 位數</div>
+                        <div class="requirement-item" id="req-upper">至少一個大寫字母 (A-Z)</div>
+                        <div class="requirement-item" id="req-lower">至少一個小寫字母 (a-z)</div>
+                        <div class="requirement-item" id="req-number">至少一個數字 (0-9)</div>
+                        <div class="requirement-item" id="req-symbol">至少一個符號 (!@#$%^&*...)</div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="reg-confirm-password">確認密碼</label>
+                    <div class="input-wrapper">
+                        <input 
+                            type="password" 
+                            id="reg-confirm-password" 
+                            placeholder="請再次輸入密碼"
+                            oninput="validateConfirmPassword(this)"
+                        >
+                        <span class="input-icon" onclick="togglePassword('reg-confirm-password')">👁️</span>
+                    </div>
+                    <div class="error-message" id="confirm-password-error"></div>
+                    <div class="success-message" id="confirm-password-success"></div>
+                </div>
+
+                <button type="submit" class="btn btn-primary" id="registerBtn" disabled>
+                    註冊
+                </button>
+            </form>
+
+            <div class="divider">或</div>
+
+            <div class="link-text">
+                已有帳號？<a href="#" onclick="showCard('login'); return false;">立即登入</a>
+            </div>
+        </div>
+
+        <div class="card" id="loginCard">
+            <div class="nav-tabs">
+                <button class="nav-tab" onclick="showCard('register')">註冊</button>
+                <button class="nav-tab active" onclick="showCard('login')">登入</button>
+            </div>
+
+            <div class="logo">
+                <h1>💬 ChatHub</h1>
+                <p>歡迎回來</p>
+            </div>
+
+            <div class="alert alert-error" id="loginAlert"></div>
+            <div class="alert alert-success" id="loginSuccessAlert"></div>
+
+            <form id="loginForm" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label for="login-username">帳號</label>
+                    <input 
+                        type="text" 
+                        id="login-username" 
+                        placeholder="請輸入您的帳號"
+                        autocomplete="username"
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="login-password">密碼</label>
+                    <div class="input-wrapper">
+                        <input 
+                            type="password" 
+                            id="login-password" 
+                            placeholder="請輸入您的密碼"
+                            autocomplete="current-password"
+                        >
+                        <span class="input-icon" onclick="togglePassword('login-password')">👁️</span>
+                    </div>
+                </div>
+
+                <div class="checkbox-group">
+                    <input type="checkbox" id="remember-me">
+                    <label for="remember-me">記住我 (7天內免登入)</label>
+                </div>
+
+                <button type="submit" class="btn btn-primary" id="loginBtn">
+                    登入
+                </button>
+
+                <div class="link-text" style="margin-bottom: 12px;">
+                    <a href="#" onclick="alert('忘記密碼功能尚未實作'); return false;">忘記密碼？</a>
+                </div>
+            </form>
+
+            <div class="divider">或</div>
+
+            <div class="link-text">
+                還沒有帳號？<a href="#" onclick="showCard('register'); return false;">立即註冊</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let passwordRequirements = {
+            length: false,
+            upper: false,
+            lower: false,
+            number: false,
+            symbol: false
+        };
+
+        function showCard(type) {
+            const registerCard = document.getElementById('registerCard');
+            const loginCard = document.getElementById('loginCard');
+            
+            if (type === 'register') {
+                registerCard.classList.add('active');
+                loginCard.classList.remove('active');
+            } else {
+                loginCard.classList.add('active');
+                registerCard.classList.remove('active');
+            }
+        }
+
+        function togglePassword(fieldId) {
+            const field = document.getElementById(fieldId);
+            field.type = field.type === 'password' ? 'text' : 'password';
+        }
+
+        function validateUsername(input) {
+            const username = input.value;
+            const errorDiv = document.getElementById('username-error');
+            const successDiv = document.getElementById('username-success');
+            
+            if (username.length === 0) {
+                input.classList.remove('error', 'success');
+                errorDiv.classList.remove('show');
+                successDiv.classList.remove('show');
+                return false;
+            }
+            
+            if (username.length < 4 || username.length > 20) {
+                input.classList.add('error');
+                input.classList.remove('success');
+                errorDiv.textContent = '帳號長度必須在 4-20 字元之間';
+                errorDiv.classList.add('show');
+                successDiv.classList.remove('show');
+                return false;
+            }
+            
+            if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+                input.classList.add('error');
+                input.classList.remove('success');
+                errorDiv.textContent = '帳號只能包含英文字母、數字和底線';
+                errorDiv.classList.add('show');
+                successDiv.classList.remove('show');
+                return false;
+            }
+            
+            input.classList.remove('error');
+            input.classList.add('success');
+            errorDiv.classList.remove('show');
+            successDiv.textContent = '✓ 帳號格式正確';
+            successDiv.classList.add('show');
+            checkFormValidity();
+            return true;
+        }
+
+        function validatePassword(input) {
+            const password = input.value;
+            
+            passwordRequirements.length = password.length >= 8;
+            passwordRequirements.upper = /[A-Z]/.test(password);
+            passwordRequirements.lower = /[a-z]/.test(password);
+            passwordRequirements.number = /[0-9]/.test(password);
+            passwordRequirements.symbol = /[@$!%*?&]/.test(password);
+            
+            document.getElementById('req-length').classList.toggle('met', passwordRequirements.length);
+            document.getElementById('req-upper').classList.toggle('met', passwordRequirements.upper);
+            document.getElementById('req-lower').classList.toggle('met', passwordRequirements.lower);
+            document.getElementById('req-number').classList.toggle('met', passwordRequirements.number);
+            document.getElementById('req-symbol').classList.toggle('met', passwordRequirements.symbol);
+            
+            const metCount = Object.values(passwordRequirements).filter(Boolean).length;
+            const strengthFill = document.getElementById('strength-fill');
+            const strengthText = document.getElementById('strength-text');
+            
+            if (password.length === 0) {
+                strengthFill.className = 'strength-fill';
+                strengthText.textContent = '';
+            } else if (metCount <= 2) {
+                strengthFill.className = 'strength-fill weak';
+                strengthText.textContent = '密碼強度：弱';
+            } else if (metCount <= 4) {
+                strengthFill.className = 'strength-fill medium';
+                strengthText.textContent = '密碼強度：中等';
+            } else {
+                strengthFill.className = 'strength-fill strong';
+                strengthText.textContent = '密碼強度：強';
+            }
+            
+            checkFormValidity();
+            
+            const confirmPassword = document.getElementById('reg-confirm-password');
+            if (confirmPassword.value) {
+                validateConfirmPassword(confirmPassword);
+            }
+        }
+
+        function validateConfirmPassword(input) {
+            const password = document.getElementById('reg-password').value;
+            const confirmPassword = input.value;
+            const errorDiv = document.getElementById('confirm-password-error');
+            const successDiv = document.getElementById('confirm-password-success');
+            
+            if (confirmPassword.length === 0) {
+                input.classList.remove('error', 'success');
+                errorDiv.classList.remove('show');
+                successDiv.classList.remove('show');
+                return false;
+            }
+            
+            if (password !== confirmPassword) {
+                input.classList.add('error');
+                input.classList.remove('success');
+                errorDiv.textContent = '兩次輸入的密碼不一致';
+                errorDiv.classList.add('show');
+                successDiv.classList.remove('show');
+                return false;
+            }
+            
+            input.classList.remove('error');
+            input.classList.add('success');
+            errorDiv.classList.remove('show');
+            successDiv.textContent = '✓ 密碼確認正確';
+            successDiv.classList.add('show');
+            checkFormValidity();
+            return true;
+        }
+
+        function checkFormValidity() {
+            const username = document.getElementById('reg-username').value;
+            const password = document.getElementById('reg-password').value;
+            const confirmPassword = document.getElementById('reg-confirm-password').value;
+            const registerBtn = document.getElementById('registerBtn');
+            
+            const isUsernameValid = username.length >= 4 && username.length <= 20 && /^[a-zA-Z0-9_]+$/.test(username);
+            const isPasswordValid = Object.values(passwordRequirements).every(Boolean);
+            const isConfirmPasswordValid = password === confirmPassword && confirmPassword.length > 0;
+            
+            registerBtn.disabled = !(isUsernameValid && isPasswordValid && isConfirmPasswordValid);
+        }
+
+        function handleRegister(event) {
+            event.preventDefault();
+            
+            const btn = document.getElementById('registerBtn');
+            const alert = document.getElementById('registerAlert');
+            
+            btn.classList.add('btn-loading');
+            btn.disabled = true;
+            
+            setTimeout(() => {
+                btn.classList.remove('btn-loading');
+                alert.textContent = '✓ 註冊成功！3秒後跳轉至登入頁面...';
+                alert.className = 'alert alert-success show';
+                
+                setTimeout(() => {
+                    showCard('login');
+                    alert.classList.remove('show');
+                    document.getElementById('registerForm').reset();
+                    document.querySelectorAll('.requirement-item').forEach(el => el.classList.remove('met'));
+                    document.getElementById('strength-fill').className = 'strength-fill';
+                    document.getElementById('strength-text').textContent = '';
+                    btn.disabled = true;
+                }, 3000);
+            }, 1500);
+        }
+
+        function handleLogin(event) {
+            event.preventDefault();
+            
+            const username = document.getElementById('login-username').value;
+            const password = document.getElementById('login-password').value;
+            const btn = document.getElementById('loginBtn');
+            const errorAlert = document.getElementById('loginAlert');
+            const successAlert = document.getElementById('loginSuccessAlert');
+            
+            if (!username || !password) {
+                errorAlert.textContent = '請填寫帳號和密碼';
+                errorAlert.classList.add('show');
+                return;
+            }
+            
+            btn.classList.add('btn-loading');
+            btn.disabled = true;
+            errorAlert.classList.remove('show');
+            
+            setTimeout(() => {
+                btn.classList.remove('btn-loading');
+                btn.disabled = false;
+                
+                if (Math.random() > 0.5) {
+                    successAlert.textContent = '✓ 登入成功！正在跳轉至主頁面...';
+                    successAlert.classList.add('show');
+                    
+                    setTimeout(() => {
+                        alert('登入成功！（這是示範原型，實際將跳轉至好友列表頁面）');
+                        successAlert.classList.remove('show');
+                    }, 2000);
+                } else {
+                    errorAlert.textContent = '帳號或密碼錯誤，請重試';
+                    errorAlert.classList.add('show');
+                }
+            }, 1500);
+        }
+    </script>
+</body>
+</html>
