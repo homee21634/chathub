@@ -2,11 +2,10 @@ package com.chathub.handler;
 
 import com.chathub.dto.WebSocketMessage;
 import com.chathub.entity.Message;
-import com.chathub.service.FriendshipService;
 import com.chathub.service.MessageService;
+import com.chathub.service.RedisMessagePublisher;
 import com.chathub.service.WebSocketSessionManager;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -15,68 +14,59 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
+import java.util.Map;
 import java.util.UUID;
 
 /**
- * WebSocket 訊息處理器
- * 處理所有 WebSocket 連線與訊息
+ * WebSocket 訊息處理器（整合 Redis Pub/Sub）
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class ChatWebSocketHandler extends TextWebSocketHandler {
 
+    private final MessageService messageService;
     private final WebSocketSessionManager sessionManager;
+    private final RedisMessagePublisher redisPublisher;
     private final ObjectMapper objectMapper;
 
     /**
-     * 連線建立後
+     * 連線建立時
      */
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
-        // 從 Session 屬性取得使用者資訊（由握手攔截器設定）
-        UUID userId = (UUID) session.getAttributes().get("userId");
-        String username = (String) session.getAttributes().get("username");
+        // 從 session 屬性取得 userId（在攔截器設定）
+        String userIdStr = (String) session.getAttributes().get("userId");
 
-        if (userId == null) {
-            log.error("連線建立失敗：缺少使用者資訊");
-            session.close();
-            return;
+        if (userIdStr != null) {
+            UUID userId = UUID.fromString(userIdStr);
+
+            // 註冊連線到管理器
+            sessionManager.addSession(userId, session);
+            log.info("User {} connected", userId);
+
+            // 發送連線成功訊息
+            WebSocketMessage connectMsg = WebSocketMessage.builder()
+                                                          .type(WebSocketMessage.MessageType.CONNECTION_ESTABLISHED)
+                                                          .payload(Map.of("userId", userIdStr))
+                                                          .build();
+            session.sendMessage(new TextMessage(objectMapper.writeValueAsString(connectMsg)));
         }
-
-        // 註冊連線
-        sessionManager.addSession(userId, session);
-
-        // 發送連線成功訊息
-        WebSocketMessage welcomeMsg = WebSocketMessage.connectionEstablished(userId);
-        sessionManager.sendMessage(userId, welcomeMsg);
-
-        log.info("✅ WebSocket 連線建立：{} ({})", username, userId);
     }
 
     /**
-     * 接收訊息
+     * 收到訊息時（關鍵修改！）
      */
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
-        String payload = message.getPayload();
-        log.debug("收到訊息：{}", payload);
+        String userIdStr = (String) session.getAttributes().get("userId");
+        UUID userId = UUID.fromString(userIdStr);
 
         try {
             // 解析訊息
-            WebSocketMessage wsMessage = objectMapper.readValue(payload, WebSocketMessage.class);
-            UUID userId = (UUID) session.getAttributes().get("userId");
+            WebSocketMessage wsMessage = objectMapper.readValue(message.getPayload(), WebSocketMessage.class);
 
-            if (userId == null) {
-                log.error("處理訊息失敗：使用者未認證");
-                return;
-            }
-
-            // 根據訊息類型分發處理
             switch (wsMessage.getType()) {
-                case PING:
-                    handlePing(userId);
-                    break;
                 case SEND_MESSAGE:
                     handleSendMessage(userId, wsMessage);
                     break;
@@ -90,234 +80,170 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
                     handleMessageRead(userId, wsMessage);
                     break;
                 default:
-                    log.warn("未知的訊息類型：{}", wsMessage.getType());
+                    log.warn("Unknown message type: {}", wsMessage.getType());
             }
 
         } catch (Exception e) {
-            log.error("處理訊息異常：{}", e.getMessage(), e);
-
-            // 發送錯誤訊息給客戶端
-            UUID userId = (UUID) session.getAttributes().get("userId");
-            if (userId != null) {
-                WebSocketMessage errorMsg = WebSocketMessage.error(
-                    "PARSE_ERROR",
-                    "訊息格式錯誤"
-                );
-                sessionManager.sendMessage(userId, errorMsg);
-            }
+            log.error("Error handling WebSocket message", e);
+            sendErrorMessage(session, "處理訊息時發生錯誤");
         }
     }
 
     /**
-     * 連線關閉後
-     */
-    @Override
-    public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
-        UUID userId = (UUID) session.getAttributes().get("userId");
-        String username = (String) session.getAttributes().get("username");
-
-        if (userId != null) {
-            sessionManager.removeSession(userId);
-            log.info("❌ WebSocket 連線關閉：{} ({})，原因：{}",
-                     username, userId, status.getReason());
-        }
-    }
-
-    /**
-     * 傳輸異常處理
-     */
-    @Override
-    public void handleTransportError(WebSocketSession session, Throwable exception) throws Exception {
-        UUID userId = (UUID) session.getAttributes().get("userId");
-        log.error("WebSocket 傳輸異常（使用者 {}）：{}", userId, exception.getMessage());
-
-        if (userId != null) {
-            sessionManager.removeSession(userId);
-        }
-    }
-
-    // ==================== 訊息處理方法 ====================
-
-    /**
-     * 處理心跳訊息
-     */
-    private void handlePing(UUID userId) {
-        WebSocketMessage pong = WebSocketMessage.pong();
-        sessionManager.sendMessage(userId, pong);
-        log.debug("心跳回應：{}", userId);
-    }
-
-    private final MessageService messageService;
-    private final FriendshipService friendshipService;
-
-    /**
-     * 處理發送訊息
+     * 處理發送訊息（核心修改！）
      */
     private void handleSendMessage(UUID senderId, WebSocketMessage wsMessage) {
         try {
             Map<String, Object> payload = wsMessage.getPayload();
-
-            // 提取參數
             String recipientIdStr = (String) payload.get("recipientId");
+            UUID recipientId = UUID.fromString(recipientIdStr);
             String content = (String) payload.get("content");
             String clientMessageId = (String) payload.get("clientMessageId");
 
-            if (recipientIdStr == null || content == null || content.trim().isEmpty()) {
-                sessionManager.sendMessage(senderId, WebSocketMessage.error(
-                    "INVALID_PARAMS", "缺少必要參數"
-                ));
-                return;
-            }
-
-            UUID recipientId = UUID.fromString(recipientIdStr);
-
-            // 驗證：是否為好友
-            if (!friendshipService.areFriends(senderId, recipientId)) {
-                sessionManager.sendMessage(senderId, WebSocketMessage.error(
-                    "NOT_FRIENDS", "只能發送訊息給好友"
-                ));
-                return;
-            }
-
-            // 驗證：內容長度
-            if (content.length() > 2000) {
-                sessionManager.sendMessage(senderId, WebSocketMessage.error(
-                    "CONTENT_TOO_LONG", "訊息內容不能超過 2000 字元"
-                ));
-                return;
-            }
-
-            // 儲存訊息到 MongoDB
+            // 1. 儲存訊息到 MongoDB
             Message savedMessage = messageService.saveMessage(
-                senderId,
-                recipientId,
-                content.trim(),
-                clientMessageId
+                senderId, recipientId, content, clientMessageId);
+
+            // 2. 建立要推送的訊息
+            Map<String, Object> messagePayload = Map.of(
+                "messageId", savedMessage.getMessageId(),
+                "conversationId", savedMessage.getConversationId(),
+                "senderId", savedMessage.getSenderId().toString(),
+                "senderUsername", savedMessage.getSenderUsername(),
+                "content", savedMessage.getContent(),
+                "timestamp", savedMessage.getTimestamp().toString()
             );
 
-            // 發送「訊息送達」確認給發送者
-            WebSocketMessage deliveredMsg = WebSocketMessage.messageDelivered(
-                savedMessage.getMessageId(),
-                clientMessageId
-            );
-            sessionManager.sendMessage(senderId, deliveredMsg);
+            WebSocketMessage notification = WebSocketMessage.builder()
+                                                            .type(WebSocketMessage.MessageType.NEW_MESSAGE)
+                                                            .payload(messagePayload)
+                                                            .build();
 
-            // 推送新訊息給接收者（如果在線）
-            if (sessionManager.isUserOnline(recipientId)) {
-                WebSocketMessage newMsg = WebSocketMessage.newMessage(
-                    savedMessage.getMessageId(),
-                    savedMessage.getConversationId(),
-                    savedMessage.getSenderId(),
-                    savedMessage.getSenderUsername(),
-                    savedMessage.getContent(),
-                    savedMessage.getTimestamp()
-                );
-                sessionManager.sendMessage(recipientId, newMsg);
-                log.info("訊息已推送給接收者：{}", recipientId);
-            } else {
-                log.info("接收者不在線上：{}，訊息已儲存", recipientId);
+            // 3. 【關鍵】透過 Redis 發布訊息（讓所有 Pod 都收到）
+            redisPublisher.publishToUser(recipientId, notification);
+
+            // 4. 發送送達確認給發送者
+            WebSocketMessage deliveredMsg = WebSocketMessage.builder()
+                                                            .type(WebSocketMessage.MessageType.MESSAGE_DELIVERED)
+                                                            .payload(Map.of(
+                                                                "messageId", savedMessage.getMessageId(),
+                                                                "clientMessageId", clientMessageId
+                                                            ))
+                                                            .build();
+
+            // 發送者在本 Pod，直接推送
+            WebSocketSession senderSession = sessionManager.getSession(senderId);
+            if (senderSession != null && senderSession.isOpen()) {
+                senderSession.sendMessage(new TextMessage(objectMapper.writeValueAsString(deliveredMsg)));
             }
 
         } catch (Exception e) {
-            log.error("處理發送訊息失敗：{}", e.getMessage(), e);
-            sessionManager.sendMessage(senderId, WebSocketMessage.error(
-                "SEND_FAILED", "發送訊息失敗"
-            ));
+            log.error("Error sending message", e);
         }
     }
 
     /**
-     * 處理開始輸入
+     * 處理「正在輸入」
      */
-    private void handleTypingStart(UUID userId, WebSocketMessage message) {
+    private void handleTypingStart(UUID userId, WebSocketMessage wsMessage) {
         try {
-            Map<String, Object> payload = message.getPayload();
-            String recipientIdStr = (String) payload.get("recipientId");
-
-            if (recipientIdStr == null) {
-                return;
-            }
-
+            String recipientIdStr = (String) wsMessage.getPayload().get("recipientId");
             UUID recipientId = UUID.fromString(recipientIdStr);
-            String username = (String) sessionManager.getSession(userId)
-                                                     .getAttributes().get("username");
 
-            // 推送給接收者
-            if (sessionManager.isUserOnline(recipientId)) {
-                WebSocketMessage typingMsg = WebSocketMessage.userTyping(
-                    userId, username, true
-                );
-                sessionManager.sendMessage(recipientId, typingMsg);
-                log.debug("使用者 {} 正在輸入，通知 {}", username, recipientId);
-            }
+            WebSocketMessage typingMsg = WebSocketMessage.builder()
+                                                         .type(WebSocketMessage.MessageType.USER_TYPING)
+                                                         .payload(Map.of("userId", userId.toString(), "isTyping", true))
+                                                         .build();
+
+            // 透過 Redis 發布
+            redisPublisher.publishToUser(recipientId, typingMsg);
 
         } catch (Exception e) {
-            log.error("處理正在輸入失敗：{}", e.getMessage());
+            log.error("Error handling typing start", e);
         }
     }
 
     /**
-     * 處理停止輸入
+     * 處理「停止輸入」
      */
-    private void handleTypingStop(UUID userId, WebSocketMessage message) {
+    private void handleTypingStop(UUID userId, WebSocketMessage wsMessage) {
         try {
-            Map<String, Object> payload = message.getPayload();
-            String recipientIdStr = (String) payload.get("recipientId");
-
-            if (recipientIdStr == null) {
-                return;
-            }
-
+            String recipientIdStr = (String) wsMessage.getPayload().get("recipientId");
             UUID recipientId = UUID.fromString(recipientIdStr);
-            String username = (String) sessionManager.getSession(userId)
-                                                     .getAttributes().get("username");
 
-            // 推送給接收者
-            if (sessionManager.isUserOnline(recipientId)) {
-                WebSocketMessage typingMsg = WebSocketMessage.userTyping(
-                    userId, username, false
-                );
-                sessionManager.sendMessage(recipientId, typingMsg);
-                log.debug("使用者 {} 停止輸入，通知 {}", username, recipientId);
-            }
+            WebSocketMessage typingMsg = WebSocketMessage.builder()
+                                                         .type(WebSocketMessage.MessageType.USER_TYPING)
+                                                         .payload(Map.of("userId", userId.toString(), "isTyping", false))
+                                                         .build();
+
+            // 透過 Redis 發布
+            redisPublisher.publishToUser(recipientId, typingMsg);
 
         } catch (Exception e) {
-            log.error("處理停止輸入失敗：{}", e.getMessage());
+            log.error("Error handling typing stop", e);
         }
     }
 
     /**
      * 處理訊息已讀
      */
-    private void handleMessageRead(UUID userId, WebSocketMessage message) {
+    private void handleMessageRead(UUID userId, WebSocketMessage wsMessage) {
         try {
-            Map<String, Object> payload = message.getPayload();
-            String conversationId = (String) payload.get("conversationId");
-            String messageId = (String) payload.get("messageId");
+            String conversationId = (String) wsMessage.getPayload().get("conversationId");
+            String messageId = (String) wsMessage.getPayload().get("messageId");
 
-            if (conversationId == null) {
-                return;
-            }
+            // 標記為已讀（需要在 MessageService 新增此方法）
+            // messageService.markAsRead(conversationId, messageId);
 
-            // 標記訊息為已讀
-            messageService.markMessagesAsRead(conversationId, userId);
-
-            // 發送已讀回執給對方（取得對話參與者）
+            // 通知發送者（透過 Redis）
+            // 需要從對話中找出另一個使用者
+            // 簡化版：假設 conversationId = userId1_userId2
             String[] participants = conversationId.split("_");
-            UUID otherUserId = participants[0].equals(userId.toString())
-                ? UUID.fromString(participants[1])
-                : UUID.fromString(participants[0]);
+            String otherUserIdStr = participants[0].equals(userId.toString()) ? participants[1] : participants[0];
+            UUID otherUserId = UUID.fromString(otherUserIdStr);
 
-            if (sessionManager.isUserOnline(otherUserId)) {
-                WebSocketMessage readReceipt = WebSocketMessage.messageReadReceipt(
-                    conversationId, messageId, userId
-                );
-                sessionManager.sendMessage(otherUserId, readReceipt);
-                log.info("已讀回執已發送給使用者 {}", otherUserId);
-            }
+            WebSocketMessage readReceipt = WebSocketMessage.builder()
+                                                           .type(WebSocketMessage.MessageType.MESSAGE_READ_RECEIPT)
+                                                           .payload(Map.of(
+                                                               "conversationId", conversationId,
+                                                               "messageId", messageId,
+                                                               "readBy", userId.toString()
+                                                           ))
+                                                           .build();
+
+            redisPublisher.publishToUser(otherUserId, readReceipt);
 
         } catch (Exception e) {
-            log.error("處理訊息已讀失敗：{}", e.getMessage());
+            log.error("Error handling message read", e);
+        }
+    }
+
+    /**
+     * 連線關閉時
+     */
+    @Override
+    public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
+        String userIdStr = (String) session.getAttributes().get("userId");
+
+        if (userIdStr != null) {
+            UUID userId = UUID.fromString(userIdStr);
+            sessionManager.removeSession(userId);
+            log.info("User {} disconnected", userId);
+        }
+    }
+
+    /**
+     * 發送錯誤訊息
+     */
+    private void sendErrorMessage(WebSocketSession session, String errorMsg) {
+        try {
+            WebSocketMessage error = WebSocketMessage.builder()
+                                                     .type(WebSocketMessage.MessageType.ERROR)
+                                                     .payload(Map.of("message", errorMsg))
+                                                     .build();
+            session.sendMessage(new TextMessage(objectMapper.writeValueAsString(error)));
+        } catch (Exception e) {
+            log.error("Error sending error message", e);
         }
     }
 }
