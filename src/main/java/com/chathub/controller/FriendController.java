@@ -14,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.List;
 import java.util.UUID;
@@ -55,14 +56,24 @@ public class FriendController {
     public ResponseEntity<ApiResponse<List<FriendRequestResponseDto>>> getReceivedRequests() {
         try {
             UUID userId = getCurrentUserId();
+            log.info("開始查詢好友請求 - UserId: {}", userId);
+
             List<FriendRequestResponseDto> requests = friendService.getReceivedRequests(userId);
-            return ResponseEntity.ok(ApiResponse.success( "查詢成功",requests));
+
+            log.info("Service 層返回成功，共 {} 筆請求", requests.size());
+            log.info("準備返回 ResponseEntity，開始 JSON 序列化...");
+
+            ResponseEntity<ApiResponse<List<FriendRequestResponseDto>>> response =
+                ResponseEntity.ok(ApiResponse.success("查詢成功", requests));
+
+            log.info("ResponseEntity 創建成功，準備返回給客戶端");
+            return response;
 
         } catch (Exception e) {
-            log.error("查詢好友請求失敗", e);
+            log.error("查詢好友請求失敗 - 詳細錯誤: {}", e.getMessage(), e);
             return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.error("查詢失敗"));
+                .body(ApiResponse.error("查詢失敗: " + e.getMessage()));
         }
     }
 
@@ -143,7 +154,34 @@ public class FriendController {
      */
     private UUID getCurrentUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String userId = (String) authentication.getPrincipal();
-        return UUID.fromString(userId);
+
+        if (authentication == null || authentication.getPrincipal() == null) {
+            throw new IllegalStateException("未找到認證信息");
+        }
+
+        Object principal = authentication.getPrincipal();
+        String userId;
+
+        // JWT 過濾器設置的是 UserDetails 物件
+        if (principal instanceof UserDetails) {
+            UserDetails userDetails = (UserDetails) principal;
+            userId = userDetails.getUsername();  // username 實際存儲的是 userId
+        }
+        // 向後兼容：如果 principal 直接是 String
+        else if (principal instanceof String) {
+            userId = (String) principal;
+        }
+        // 不支持的類型
+        else {
+            throw new IllegalStateException(
+                "不支持的 principal 類型: " + principal.getClass().getName()
+            );
+        }
+
+        try {
+            return UUID.fromString(userId);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalStateException("無效的用戶 ID 格式: " + userId, e);
+        }
     }
 }

@@ -5,7 +5,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
 import java.util.UUID;
 /**
  * 好友請求回應
@@ -20,5 +19,5 @@ public class FriendRequestResponseDto {
     private UUID fromUserId;
     private String fromUsername;
     private String status;
-    private LocalDateTime createdAt;
+    private String createdAt;
 }

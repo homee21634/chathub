@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -91,16 +92,34 @@ public class FriendServiceImpl implements FriendService {
         // 查詢所有待處理的請求
         List<FriendRequest> requests = friendRequestRepository.findReceivedPendingRequests(userId);
 
+        log.info("查詢到 {} 筆好友請求，準備轉換 DTO", requests.size());
+
+        // 定義日期格式化器
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+
         // 轉換為 DTO
-        return requests.stream()
-                       .map(request -> FriendRequestResponseDto.builder()
-                                                               .requestId(request.getRequestId())
-                                                               .fromUserId(request.getFromUser().getUserId())
-                                                               .fromUsername(request.getFromUser().getUsername())
-                                                               .status(request.getStatus().name())
-                                                               .createdAt(request.getCreatedAt())
-                                                               .build())
+        List<FriendRequestResponseDto> result = requests.stream()
+                       .map(request -> {
+                           log.debug("轉換請求 - ID: {}, From: {}, CreatedAt: {}",
+                               request.getRequestId(),
+                               request.getFromUser().getUsername(),
+                               request.getCreatedAt());
+
+                           // 格式化日期為字串
+                           String createdAtStr = request.getCreatedAt().format(formatter);
+
+                           return FriendRequestResponseDto.builder()
+                                                           .requestId(request.getRequestId())
+                                                           .fromUserId(request.getFromUser().getUserId())
+                                                           .fromUsername(request.getFromUser().getUsername())
+                                                           .status(request.getStatus().name())
+                                                           .createdAt(createdAtStr)
+                                                           .build();
+                       })
                        .collect(Collectors.toList());
+
+        log.info("DTO 轉換完成，共 {} 筆", result.size());
+        return result;
     }
 
     /**
@@ -169,6 +188,9 @@ public class FriendServiceImpl implements FriendService {
         // 1. 查詢所有好友關係
         List<Friendship> friendships = friendshipRepository.findFriendsByUserId(userId);
 
+        // 定義日期格式化器
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+
         // 2. 轉換為 DTO，並查詢線上狀態
         return friendships.stream()
                           .map(friendship -> {
@@ -177,11 +199,14 @@ public class FriendServiceImpl implements FriendService {
                               // 從 Redis 查詢線上狀態
                               boolean isOnline = redisService.isUserOnline(friend.getUserId());
 
+                              // 格式化日期為字串
+                              String friendsSinceStr = friendship.getCreatedAt().format(formatter);
+
                               return FriendInfoDto.builder()
                                                   .userId(friend.getUserId())
                                                   .username(friend.getUsername())
                                                   .isOnline(isOnline)
-                                                  .friendsSince(friendship.getCreatedAt())
+                                                  .friendsSince(friendsSinceStr)
                                                   .build();
                           })
                           .collect(Collectors.toList());
